@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#050706">
+    <title>Datos en vivo · Sandbox IA</title>
+    <link rel="icon" href="img/favicon.ico" sizes="any">
+    <link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="image" href="img/robot.webp" type="image/webp" fetchpriority="high">
+    <link rel="stylesheet" href="css/estadisticas.css">
+</head>
+<body>
+<main class="consola">
+
+    <nav class="barra-superior">
+        <a class="volver" href="index.html">‹ JUGAR</a>
+        <span class="senal" id="senal" data-estado="conectando" title="Se actualiza sola cada pocos segundos">
+            <i class="senal-punto"></i><span id="senal-texto">CONECTANDO</span>
+        </span>
+    </nav>
+
+    <header class="cabecera" id="cabecera">
+        <div class="marco-robot">
+            <svg id="robot" class="robot" viewBox="0 0 200 299" role="img"
+                 aria-label="Robot esqueleto de plastilina con ojos rojos">
+                <image href="img/robot.webp" x="0" y="0" width="200" height="299"
+                       onload="this.parentNode.setAttribute('data-listo', '')"/>
+                <g class="pupilas">
+                    <circle class="ojo" cx="54.3" cy="135.3" r="11"/>
+                    <circle class="ojo" cx="145.5" cy="135.3" r="11"/>
+                </g>
+            </svg>
+        </div>
+
+        <div class="cabecera-datos">
+            <h1 class="titulo">DATOS EN VIVO</h1>
+            <div class="kpis">
+                <div class="kpi"><span class="kpi-valor" data-kpi="partidas">—</span><span class="kpi-etiqueta">PARTIDAS</span></div>
+                <div class="kpi"><span class="kpi-valor" data-kpi="operadores">—</span><span class="kpi-etiqueta">OPERADORES</span></div>
+                <div class="kpi"><span class="kpi-valor" data-kpi="reacciones">—</span><span class="kpi-etiqueta">REACCIONES</span></div>
+                <div class="kpi"><span class="kpi-valor" data-kpi="mejor">—</span><span class="kpi-etiqueta">MEJOR TIEMPO</span></div>
+                <div class="kpi"><span class="kpi-valor" data-kpi="mediana">—</span><span class="kpi-etiqueta">MEDIANA</span></div>
+                <div class="kpi"><span class="kpi-valor" data-kpi="ultima">—</span><span class="kpi-etiqueta">ÚLTIMA PARTIDA HACE</span></div>
+            </div>
+        </div>
+
+        <div class="descontrol">
+            <div class="hud-fila">
+                <span>DESCONTROL HISTÓRICO</span>
+                <span data-kpi="fuga">—</span>
+            </div>
+            <div class="barra" role="img" aria-label="Porcentaje de partidas en las que la IA escapó">
+                <div class="barra-cubierta" data-kpi="fuga-cubierta"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 01 · AHORA -->
+    <section class="bloque" id="s-ahora">
+        <p class="pregunta">01 · AHORA</p>
+        <h2 class="titular"></h2>
+        <ul class="feed" aria-label="Últimas partidas"></ul>
+    </section>
+
+    <!-- 02 · DISTRIBUCIÓN -->
+    <section class="bloque" id="s-distribucion">
+        <p class="pregunta">02 · ¿CUÁNTO TARDAMOS?</p>
+        <h2 class="titular"></h2>
+        <div class="grafico"></div>
+        <ul class="leyenda" aria-hidden="true">
+            <li><i class="muestra muestra-banda"></i>8 de cada 10</li>
+            <li><i class="muestra muestra-mediana"></i>mediana</li>
+            <li><i class="muestra muestra-extremos"></i>mejor y peor</li>
+        </ul>
+    </section>
+
+    <!-- 03 · DISPOSITIVOS -->
+    <section class="bloque" id="s-dispositivos">
+        <p class="pregunta">03 · ¿CELULAR O COMPU?</p>
+        <h2 class="titular"></h2>
+        <div class="grafico"></div>
+    </section>
+
+    <!-- 04 · EL TABLERO: el mapa de calor está hecho con los mismos botones del juego -->
+    <section class="bloque" id="s-tablero">
+        <p class="pregunta">04 · EL TABLERO</p>
+        <h2 class="titular"></h2>
+        <div class="tablero" role="group" aria-label="Los seis botones del juego, en dos filas de tres"></div>
+        <div class="regla" aria-hidden="true">
+            <div class="regla-barra"></div>
+            <div class="regla-texto"><span>MÁS RÁPIDO</span><span>SOLO ROBOT ALEATORIO</span><span>MÁS LENTO</span></div>
+        </div>
+    </section>
+
+    <!-- 05 · A LO LARGO DE LA PARTIDA -->
+    <section class="bloque" id="s-rondas">
+        <p class="pregunta">05 · A LO LARGO DE LA PARTIDA</p>
+        <h2 class="titular"></h2>
+        <div class="grafico"></div>
+        <ul class="leyenda" aria-hidden="true">
+            <li><i class="muestra muestra-aleatorio"></i>ALEATORIO</li>
+            <li><i class="muestra muestra-adaptativo"></i>ADAPTATIVO</li>
+        </ul>
+    </section>
+
+    <!-- 06 · DUELO DE ROBOTS -->
+    <section class="bloque" id="s-duelo">
+        <p class="pregunta">06 · EL ROBOT QUE APRENDE</p>
+        <h2 class="titular"></h2>
+        <div class="duelo">
+            <div class="duelo-fila" data-robot="aleatorio">
+                <div class="hud-fila"><span>ALEATORIO</span><span data-campo="valor">—</span></div>
+                <div class="barra"><div class="barra-cubierta" data-campo="cubierta"></div></div>
+                <p class="duelo-meta" data-campo="meta"></p>
+            </div>
+            <div class="duelo-fila" data-robot="adaptativo">
+                <div class="hud-fila"><span>ADAPTATIVO</span><span data-campo="valor">—</span></div>
+                <div class="barra"><div class="barra-cubierta" data-campo="cubierta"></div></div>
+                <p class="duelo-meta" data-campo="meta"></p>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<noscript><p class="sin-js">Este panel necesita JavaScript para leer los datos de la base.</p></noscript>
+<script src="js/estadisticas.js"></script>
+</body>
+</html>

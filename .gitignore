@@ -1,0 +1,15 @@
+# Credenciales reales: nunca al repositorio (se sube config/conexion.ejemplo.php)
+config/conexion.php
+
+# Caché que genera el panel en el servidor (api/estadisticas.php crea la carpeta sola)
+cache/
+
+# Diagnóstico y restos de la versión con vistas
+api/probar.php
+vistas_estadisticas.sql
+verificacion.sql
+partidas_simuladas.sql
+
+# Archivos que genera Windows solo
+Thumbs.db
+desktop.ini

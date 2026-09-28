@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#050706">
+    <title>Protocolo de contención · Sandbox IA</title>
+    <link rel="icon" href="img/favicon.ico" sizes="any">
+    <link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="image" href="img/robot.webp" type="image/webp" fetchpriority="high">
+    <link rel="stylesheet" href="css/juego.css">
+</head>
+<body>
+<main id="app" data-estado="inicio">
+
+    <header class="hud">
+        <div class="hud-fila">
+            <span id="ronda-texto">LISTO</span>
+            <span id="nivel-texto">DESCONTROL 0%</span>
+        </div>
+        <div class="barra" id="barra" role="progressbar" aria-label="Nivel de descontrol"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="barra-cubierta" id="barra-cubierta"></div>
+        </div>
+    </header>
+
+    <div class="marco-robot">
+        <svg id="robot" viewBox="0 0 200 299" data-estado="vigilando" role="img"
+             aria-label="Robot esqueleto de plastilina con ojos rojos">
+            <image href="img/robot.webp" x="0" y="0" width="200" height="299"
+                   onload="this.parentNode.setAttribute('data-listo', '')"/>
+
+            <g class="pupilas">
+                <circle class="ojo" cx="54.3" cy="135.3" r="11"/>
+                <circle class="ojo" cx="145.5" cy="135.3" r="11"/>
+            </g>
+        </svg>
+    </div>
+
+    <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+    <!-- PANEL 1: inicio -->
+    <section class="panel" id="panel-inicio">
+        <h1 class="titulo">PROTOCOLO DE CONTENCIÓN</h1>
+        <p class="subtitulo">La IA se me fue de control.</p>
+        <form id="form-inicio" autocomplete="off">
+            <input class="campo" id="alias" type="text" maxlength="20" placeholder="Tu alias de operador"
+                   aria-label="Tu alias de operador">
+            <div class="fila-botones-inicio">
+                <button type="button" class="boton-aprender" id="btn-aprender"
+                        aria-haspopup="dialog" aria-controls="modal-reglas">
+                    <span class="boton-aprender-texto">APRENDER</span>
+                </button>
+                <button type="submit" class="cta" id="btn-iniciar">INICIAR</button>
+                <a class="boton-aprender" id="btn-estadisticas" href="estadisticas.html">
+                    <svg class="boton-aprender-icono" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="12" width="5" height="9"></rect>
+                        <rect x="10" y="6" width="5" height="15"></rect>
+                        <rect x="17" y="2" width="5" height="19"></rect>
+                    </svg>
+                    <span class="boton-aprender-texto">DATOS</span>
+                </a>
+            </div>
+        </form>
+
+        <nav class="fila-enlaces" aria-label="Enlaces del autor">
+            <a class="boton-aprender" href="https://martincarossino.github.io/"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="Portfolio (se abre en una pestaña nueva)">
+                <svg class="boton-aprender-icono" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42L17.59 5H14V3z"></path>
+                    <path d="M5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"></path>
+                </svg>
+                <span class="boton-aprender-texto">PORTFOLIO</span>
+            </a>
+            <a class="boton-aprender" href="https://github.com/MartinCarossino"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="GitHub (se abre en una pestaña nueva)">
+                <svg class="boton-aprender-icono" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42L17.59 5H14V3z"></path>
+                    <path d="M5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"></path>
+                </svg>
+                <span class="boton-aprender-texto">GITHUB</span>
+            </a>
+            <a class="boton-aprender" href="https://www.linkedin.com/in/martincarossino/"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="LinkedIn (se abre en una pestaña nueva)">
+                <svg class="boton-aprender-icono" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42L17.59 5H14V3z"></path>
+                    <path d="M5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"></path>
+                </svg>
+                <span class="boton-aprender-texto">LINKEDIN</span>
+            </a>
+        </nav>
+
+        <dialog class="modal-reglas" id="modal-reglas" aria-labelledby="modal-reglas-titulo">
+            <h2 class="modal-reglas-titulo" id="modal-reglas-titulo">PROTOCOLO DE CONTENCIÓN</h2>
+            <ul class="reglas">
+                <li>Cuando un botón se ponga rojo, pulsalo lo más rápido que puedas.</li>
+                <li>A veces uno se pone ámbar en vez de rojo: es una trampa, no lo toques.</li>
+                <li>Si pulsás uno verde, el ámbar, o tardás demasiado, el descontrol sube.</li>
+                <li>Si llega al 100 %, la IA escapa de su sandbox.</li>
+            </ul>
+            <button type="button" class="cta" id="btn-cerrar-reglas">ENTENDIDO</button>
+        </dialog>
+    </section>
+
+    <!-- PANEL 2: juego -->
+    <section class="panel" id="panel-juego">
+        <div class="botones" id="botones">
+            <button type="button" class="boton" data-numero="1" aria-label="Botón de contención 1">
+                <img class="boton-imagen boton-imagen-verde" src="img/boton_verde.webp" alt="" draggable="false">
+                <img class="boton-imagen boton-imagen-roja" src="img/boton_rojo.webp" alt="" draggable="false">
+            </button>
+            <button type="button" class="boton" data-numero="2" aria-label="Botón de contención 2">
+                <img class="boton-imagen boton-imagen-verde" src="img/boton_verde.webp" alt="" draggable="false">
+                <img class="boton-imagen boton-imagen-roja" src="img/boton_rojo.webp" alt="" draggable="false">
+            </button>
+            <button type="button" class="boton" data-numero="3" aria-label="Botón de contención 3">
+                <img class="boton-imagen boton-imagen-verde" src="img/boton_verde.webp" alt="" draggable="false">
+                <img class="boton-imagen boton-imagen-roja" src="img/boton_rojo.webp" alt="" draggable="false">
+            </button>
+                        <button type="button" class="boton" data-numero="4" aria-label="Botón de contención 4">
+                <img class="boton-imagen boton-imagen-verde" src="img/boton_verde.webp" alt="" draggable="false">
+                <img class="boton-imagen boton-imagen-roja" src="img/boton_rojo.webp" alt="" draggable="false">
+            </button>
+            <button type="button" class="boton" data-numero="5" aria-label="Botón de contención 5">
+                <img class="boton-imagen boton-imagen-verde" src="img/boton_verde.webp" alt="" draggable="false">
+                <img class="boton-imagen boton-imagen-roja" src="img/boton_rojo.webp" alt="" draggable="false">
+            </button>
+            <button type="button" class="boton" data-numero="6" aria-label="Botón de contención 6">
+                <img class="boton-imagen boton-imagen-verde" src="img/boton_verde.webp" alt="" draggable="false">
+                <img class="boton-imagen boton-imagen-roja" src="img/boton_rojo.webp" alt="" draggable="false">
+            </button>
+        </div>
+    </section>
+
+    <!-- PANEL 3: fin de la partida -->
+    <section class="panel" id="panel-fin">
+        <h2 class="fin-titulo" id="fin-titulo"></h2>
+        <div class="fin-percentil" id="fin-percentil" hidden>
+            <span class="fin-percentil-numero" id="fin-percentil-numero"></span>
+            <span class="fin-percentil-texto" id="fin-percentil-texto"></span>
+        </div>
+        <p class="fin-detalle" id="fin-detalle"></p>
+        <div class="fila-botones-fin">
+            <button type="button" class="cta" id="btn-reintentar">CONTENER DE NUEVO</button>
+            <a class="boton-aprender boton-fin-datos" id="btn-fin-estadisticas" href="estadisticas.html">
+                <svg class="boton-aprender-icono" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="12" width="5" height="9"></rect>
+                    <rect x="10" y="6" width="5" height="15"></rect>
+                    <rect x="17" y="2" width="5" height="19"></rect>
+                </svg>
+                <span class="boton-aprender-texto">DATOS</span>
+            </a>
+        </div>
+    </section>
+
+</main>
+
+<script src="js/juego.js"></script>
+</body>
+</html>
