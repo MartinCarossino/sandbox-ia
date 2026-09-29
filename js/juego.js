@@ -1,15 +1,13 @@
 'use strict';
 
-/* ============================================================
-   Protocolo de contención · lógica del juego (navegador)
-   El servidor decide TODO lo importante (rondas, retardos, reglas del
-   descontrol). Este archivo solo dibuja, mide el tiempo de reacción y
-   avisa al servidor lo que pasó.
-   ============================================================ */
+/* 
+   Protocolo de contención · lógica del juego
+   El servidor decide TODO lo importante (rondas, retardos, reglas del descontrol).
+   Este archivo solo dibuja, mide el tiempo de reacción y avisa al servidor lo que pasó.
+*/
 
-// Pausa entre el resultado de una ronda y la siguiente. Debe ser MENOR que
-// MARGEN_MAXIMO_MS (5000) de ServicioPartida.php: el servidor empieza a
-// contar la ronda siguiente en cuanto la entrega, pausa incluida.
+// Pausa entre el resultado de una ronda y la siguiente. Debe ser MENOR que MARGEN_MAXIMO_MS (5000) de ServicioPartida.php: 
+// el servidor empieza a contar la ronda siguiente en cuanto la entrega, pausa incluida.
 const PAUSA_ENTRE_RONDAS_MS = 800;
 const PAUSA_FINAL_MS = 1600;   // tiempo para ver el ojo del robot antes de la pantalla final
 
@@ -30,13 +28,13 @@ function pausa(milisegundos) {
     return new Promise(function (resolver) { setTimeout(resolver, milisegundos); });
 }
 
-/* ------------------------------------------------------------
+// Reintentos al INICIAR la partida, si el hosting no respondió con datos (ver ClienteApi.iniciarPartida).
+const INTENTOS_AL_INICIAR = 3;
+const ESPERA_ENTRE_INTENTOS_MS = 1500;
+
+/* ---------------------------------------
    ClienteApi: habla con los endpoints PHP
-   ------------------------------------------------------------ */
-// [POO · ABSTRACCIÓN]
-// El resto del juego pide "iniciar partida" o "registrar ronda" sin saber
-// nada de fetch, URLs, formularios ni JSON. Si mañana cambia la dirección de
-// la API (por ejemplo al subirla a InfinityFree), se toca solo esta clase.
+   --------------------------------------- */
 class ClienteApi {
 
     // El método privado (#) esconde el detalle técnico del envío.
@@ -52,15 +50,14 @@ class ClienteApi {
         try {
             respuesta = await fetch(url, { method: 'POST', body: cuerpo, credentials: 'same-origin' });
         } catch (error) {
-            throw new Error('No hay conexión con el servidor.');
+            throw this.#errorReintentable('No hay conexión con el servidor.');
         }
 
         let json;
         try {
             json = await respuesta.json();
         } catch (error) {
-            // Si PHP muestra un error fatal, llega HTML en lugar de JSON.
-            throw new Error('El servidor devolvió una respuesta inválida.');
+            throw this.#errorReintentable('El servidor devolvió una respuesta inválida.');
         }
 
         if (!json.ok) {
@@ -69,12 +66,38 @@ class ClienteApi {
         return json;
     }
 
-    iniciarPartida(tokenJugador, alias, dispositivo) {
-        return this.#enviar('api/iniciar_partida.php', {
+    // Marca los errores en los que el servidor NO llegó a responder con datos: probar de nuevo tiene sentido.
+    // Un error que llega en el JSON ("Error interno.", "Demasiadas partidas...") es una respuesta real: no se reintenta.
+    #errorReintentable(texto) {
+        const error = new Error(texto);
+        error.reintentable = true;
+        return error;
+    }
+
+    // Solo el INICIO se reintenta. Si el hosting está saturado un instante (por ejemplo, varias personas jugando a la vez),
+    // esperar un poco y volver a pedir suele alcanzar. En las rondas no se hace: el servidor rechaza a propósito una ronda
+    // repetida (es parte del anti-trampa), así que un reintento cancelaría la partida en lugar de salvarla.
+    // alReintentar (opcional) avisa antes de cada nuevo intento, para que la pantalla muestre qué está pasando.
+    async iniciarPartida(tokenJugador, alias, dispositivo, alReintentar) {
+        const datos = {
             token_jugador: tokenJugador,
             alias: alias,
             dispositivo: dispositivo
-        });
+        };
+
+        for (let intento = 1; ; intento++) {
+            try {
+                return await this.#enviar('api/iniciar_partida.php', datos);
+            } catch (error) {
+                if (!error.reintentable || intento >= INTENTOS_AL_INICIAR) {
+                    throw error;
+                }
+                if (alReintentar) {
+                    alReintentar(intento + 1);
+                }
+                await pausa(ESPERA_ENTRE_INTENTOS_MS * intento);   // 1,5 s y después 3 s
+            }
+        }
     }
 
     registrarRonda(numeroRonda, tipoResultado, tiempoMs) {
@@ -86,18 +109,16 @@ class ClienteApi {
     }
 }
 
-/* ------------------------------------------------------------
+/* ---------------------------------------------
    RobotVisual: controla el dibujo SVG del robot
-   ------------------------------------------------------------ */
+   --------------------------------------------- */
 // [POO · ABSTRACCIÓN]
-// Quien usa esta clase dice QUÉ le pasa al robot (vigilar, alertar, escapar)
-// sin saber cómo se logra: atributos del SVG, variables CSS, animaciones.
+// Quien usa esta clase dice QUÉ le pasa al robot (vigilar, alertar, escapar) sin saber cómo se logra: atributos del SVG, variables CSS, animaciones.
 class RobotVisual {
 
     // [POO · ENCAPSULAMIENTO]
-    // El elemento SVG es privado: desde afuera nadie puede dejarlo en un
-    // estado inventado ("modo-raro"). Solo se llega a los estados válidos
-    // a través de los métodos públicos.
+    // El elemento SVG es privado: desde afuera nadie puede dejarlo en un estado inventado ("modo-raro").
+    // Solo se llega a los estados válidos a través de los métodos públicos.
     #svg;
 
     constructor(elementoSvg) {
@@ -115,14 +136,13 @@ class RobotVisual {
     }
 }
 
-/* ------------------------------------------------------------
+/* --------------------------------------------
    PanelBotones: los seis botones de contención
-   ------------------------------------------------------------ */
+   -------------------------------------------- */
 class PanelBotones {
 
     // [POO · ENCAPSULAMIENTO]
-    // Los botones y la función de aviso son privados: el Juego no manipula el
-    // HTML directamente, solo pide "encender el 2" o "confirmar el 2".
+    // Los botones y la función de aviso son privados: el Juego no manipula el HTML directamente, solo pide "encender el 2" o "confirmar el 2".
     #botones;
     #alPulsar;
     #sonido;
@@ -133,13 +153,11 @@ class PanelBotones {
         this.#sonido = sonido;
 
         this.#botones.forEach((boton) => {
-            // "pointerdown" reacciona en el instante del toque. "click" espera a
-            // soltar el dedo y en algunos móviles suma un retardo que arruinaría la medición.
+            // "pointerdown" reacciona en el instante del toque. "click" espera a soltar el dedo y en algunos celulares suma un retardo que arruinaría la medición.
             boton.addEventListener('pointerdown', (evento) => {
                 evento.preventDefault();
-                // #alPulsar va PRIMERO: adentro es lo primero que se mide el
-                // tiempo con performance.now(). El clic se toca después, así
-                // no le suma ni un milisegundo a esa medición.
+                // #alPulsar va PRIMERO: adentro es lo primero que se mide el tiempo con performance.now().
+                // El clic se toca después, así no le suma ni un milisegundo a esa medición.
                 this.#alPulsar(Number(boton.dataset.numero));
                 this.#sonido.clic();
             });
@@ -162,8 +180,7 @@ class PanelBotones {
         boton.classList.add('acierto');
     }
 
-    // El "falso botón rojo": mismo mecanismo que encender()/confirmar(), pero
-    // con su propia clase CSS (ámbar, no rojo) para no confundirlo con el real.
+    // El "falso botón rojo": mismo mecanismo que encender()/confirmar(), pero con su propia clase CSS (ámbar, no rojo) para no confundirlo con el real.
     encenderSenuelo(numero) {
         this.#botones[numero - 1].classList.add('senuelo');
     }
@@ -173,29 +190,19 @@ class PanelBotones {
     }
 }
 
-/* ------------------------------------------------------------
+/* --------------------------------------------------
    MotorSonido: todos los efectos de sonido del juego
-   ------------------------------------------------------------ */
-// [POO · ABSTRACCIÓN]
-// El resto del juego pide sonidos por su INTENCIÓN ("tensionIniciar",
-// "alarma", "clic", "acierto"...) sin saber nada de osciladores, ruido
-// blanco ni envolventes de volumen. Si el día de mañana se cambian los
-// sonidos sintetizados por archivos grabados, alcanza con tocar esta clase.
+   -------------------------------------------------- */
+
 class MotorSonido {
 
-    // [POO · ENCAPSULAMIENTO]
-    // El AudioContext y los nodos de la tensión en curso son privados: nadie
-    // de afuera puede dejarlos en un estado inconsistente (por ejemplo, un
-    // oscilador sonando para siempre porque no se llamó a stop()). Todo pasa
-    // por los métodos públicos de abajo.
     #contexto = null;
-    #tension = null;    // { cancelado, temporizador } del pulso de tensión en curso, o null
-    #ambiente = null;   // { osciladorA, osciladorB, ganancia } del zumbido de fondo, o null
+    #tension = null;
+    #ambiente = null;
 
-    // Los navegadores exigen un gesto del usuario (tocar un botón) antes de
-    // dejar sonar cualquier cosa. Por eso el AudioContext no se crea en el
-    // constructor: se crea (o se reactiva) acá, y el Juego llama a esto
-    // desde el submit de "Iniciar", que ya es ese gesto.
+    // Los navegadores exigen un gesto del usuario (tocar un botón) antes de dejar sonar cualquier cosa.
+    // Por eso el AudioContext no se crea en el constructor: se crea (o se reactiva) acá, 
+    // y el Juego llama a esto desde el submit de "Iniciar", que ya es ese gesto.
     async iniciar() {
         if (!this.#contexto) {
             const Contexto = window.AudioContext || window.webkitAudioContext;
@@ -208,10 +215,8 @@ class MotorSonido {
         console.log('[sonido] AudioContext listo, estado:', this.#contexto.state);   // sacar cuando esté confirmado
     }
 
-    // Un tono simple con envolvente ataque-caída: sube de golpe y cae con
-    // curva exponencial (suena más natural al oído que una caída lineal).
-    // "cuandoSeg" lo usan alarma() y las melodías para escalonar varias
-    // notas en el tiempo con una sola llamada a currentTime.
+    // Un tono simple con envolvente ataque-caída: sube de golpe y cae con curva exponencial.
+    // "cuandoSeg" lo usan alarma() y las melodías para escalonar varias notas en el tiempo con una sola llamada a currentTime.
     #tono(frecuencia, duracionSeg, tipo, volumen, cuandoSeg) {
         const ctx = this.#contexto;
         if (!ctx) { return; }
@@ -231,10 +236,7 @@ class MotorSonido {
         oscilador.stop(inicio + duracionSeg + 0.02);
     }
 
-    // ---------- Clic de botón ----------
-    // No es un tono: es ruido blanco filtrado y recortado en 30 ms, como el
-    // "tac" seco de un botón físico. Así no se confunde con la alarma ni con
-    // el latido de fondo, que sí son tonos.
+    // Clic de botón ---------- No es un tono: es ruido blanco filtrado y recortado en 30 ms, como el "tac" seco de un botón físico.
     clic() {
         const ctx = this.#contexto;
         if (!ctx) { return; }
@@ -260,16 +262,7 @@ class MotorSonido {
         fuente.start();
     }
 
-    // ---------- Tensión mientras se espera la alarma ----------
-    // Una serie de golpes graves y cortos (reutiliza #tono, no un drone
-    // continuo) que se van acelerando: arrancan cada ~900 ms y terminan
-    // cada ~220 ms, cada vez un poco más fuertes. Es el mismo lenguaje que
-    // un detector de latidos o un contador Geiger: más fácil de percibir
-    // que una modulación continua de volumen, sobre todo con el parlante
-    // chico de un celular.
-    // duracionMs es SIEMPRE el retardo real de la ronda (lo decide el
-    // servidor), así que la aceleración termina justo cuando se enciende
-    // el rojo, no antes ni después.
+    // Tensión mientras se espera la alarma
     tensionIniciar(duracionMs) {
         const ctx = this.#contexto;
         if (!ctx) { return; }
@@ -280,17 +273,12 @@ class MotorSonido {
         const estado = { cancelado: false, temporizador: null };
         this.#tension = estado;
 
-        // Función que se llama a sí misma: toca un golpe y programa el
-        // siguiente con un intervalo cada vez más corto, hasta que se
-        // cancele (tensionDetener) o se acabe la ronda.
+        // Función que se llama a sí misma: toca un golpe y programa el siguiente con un intervalo cada vez más corto, hasta que se cancele o se acabe la ronda.
         const golpe = () => {
             if (estado.cancelado) { return; }
 
             const progreso = Math.min((ctx.currentTime - arranque) / duracionSeg, 1);   // 0 a 1
-            // 'triangle' en vez de 'sine': tiene armónicos, así que se sigue
-            // escuchando aunque el parlante reproduzca mal la frecuencia base
-            // (el problema real de la versión anterior, que usaba 85 Hz sine:
-            // muchos parlantes de notebook/celular casi no la reproducen).
+
             this.#tono(180, 0.1, 'triangle', 0.22 + progreso * 0.1, 0);
 
             const intervaloMs = 900 - progreso * 680;   // 900 ms al empezar, 220 ms cerca del final
@@ -299,8 +287,7 @@ class MotorSonido {
         golpe();
     }
 
-    // Segura de llamar aunque no haya nada sonando (por ejemplo, si la
-    // ronda se resuelve por un falso inicio antes del primer golpe).
+    // Segura de llamar aunque no haya nada sonando (por ejemplo, si la ronda se resuelve por un falso inicio antes del primer golpe).
     tensionDetener() {
         if (!this.#tension) { return; }
         this.#tension.cancelado = true;
@@ -308,16 +295,7 @@ class MotorSonido {
         this.#tension = null;
     }
 
-    // ---------- Ambiente de la pantalla de inicio ----------
-    // Dos osciladores apenas desafinados entre sí (110 Hz y 110.8 Hz) en
-    // diente de sierra —tiene muchos más armónicos que 'triangle', por eso
-    // se nota más— pasan por un filtro pasa-bajos que le saca el filo y
-    // deja solo un cuerpo grave con textura, más "atmósfera" que "zumbido
-    // eléctrico". Un LFO lento (un ciclo cada ~12 s) mueve la frecuencia
-    // del filtro todo el tiempo: un drone perfectamente fijo se "apaga" al
-    // oído en pocos segundos (adaptación auditiva) aunque siga sonando
-    // igual de fuerte; este se mantiene presente porque nunca deja de
-    // moverse un poco, como un pad de sintetizador.
+    // Ambiente de la pantalla de inicio
     ambienteIniciar() {
         const ctx = this.#contexto;
         if (!ctx || this.#ambiente) { return; }   // ya está sonando, no se duplica
@@ -364,9 +342,7 @@ class MotorSonido {
         this.#ambiente = { osciladorA, osciladorB, lfo, ganancia };
     }
 
-    // Fade de salida un poco más largo que tensionDetener() (0.5 s en vez
-    // de instantáneo): cortar un drone grave de golpe se nota mucho más
-    // que cortar un pulso corto.
+    // Fade de salida un poco más largo que tensionDetener()
     ambienteDetener() {
         if (!this.#ambiente || !this.#contexto) { this.#ambiente = null; return; }
         const ctx = this.#contexto;
@@ -383,35 +359,26 @@ class MotorSonido {
         this.#ambiente = null;
     }
 
-    // ---------- Alarma: el botón se pone rojo ----------
-    // Tres notas cortas en diente de sierra, alternando agudo-grave-agudo:
-    // el timbre "áspero" del diente de sierra es el que más se asocia a
-    // alarma o sirena, a diferencia del triangle/sine que se usan abajo
-    // para el acierto (un timbre más "limpio", casi musical).
+    // Alarma: el botón se pone rojo
     alarma() {
         this.#tono(880, 0.09, 'sawtooth', 0.14, 0);
         this.#tono(660, 0.09, 'sawtooth', 0.14, 0.09);
         this.#tono(880, 0.12, 'sawtooth', 0.14, 0.18);
     }
 
-    // ---------- Resultado de la ronda ----------
-    // Arpegio corto y ascendente (Do-Mi-Sol) para el acierto: se reconoce
-    // como algo "positivo" sin tener que mirar la pantalla.
+    // Resultado de la ronda
     acierto() {
         this.#tono(523.25, 0.09, 'triangle', 0.12, 0);
         this.#tono(659.25, 0.09, 'triangle', 0.12, 0.07);
         this.#tono(783.99, 0.14, 'triangle', 0.12, 0.14);
     }
 
-    // Un solo tono grave, sin melodía: alcanza para distinguirlo del acierto
-    // por oído. Sirve para timeout, señuelo y falso inicio por igual.
+    // Un solo tono grave, sin melodía: alcanza para distinguirlo del acierto por oído. Sirve para timeout, señuelo y falso inicio por igual.
     error() {
         this.#tono(140, 0.22, 'square', 0.1, 0);
     }
 
-    // ---------- Fin de la partida ----------
-    // Cuatro notas ascendentes que terminan una octava arriba: una pequeña
-    // fanfarria para la IA contenida.
+    // Fin de la partida
     victoria() {
         this.#tono(523.25, 0.12, 'triangle', 0.13, 0);
         this.#tono(659.25, 0.12, 'triangle', 0.13, 0.11);
@@ -419,23 +386,21 @@ class MotorSonido {
         this.#tono(1046.5, 0.28, 'triangle', 0.14, 0.33);
     }
 
-    // Dos notas graves y descendentes en diente de sierra: el eco "áspero"
-    // de la alarma, pero más largo y sin resolución, para la IA escapada.
+    // Dos notas graves y descendentes en diente de sierra: el eco "áspero" de la alarma, pero más largo y sin resolución, para la IA escapada.
     derrota() {
         this.#tono(196, 0.35, 'sawtooth', 0.13, 0);
         this.#tono(164.81, 0.5, 'sawtooth', 0.13, 0.22);
     }
 }
 
-/* ------------------------------------------------------------
+/* --------------------
    Juego: coordina todo
-   ------------------------------------------------------------ */
+   -------------------- */
 class Juego {
 
     // [POO · ENCAPSULAMIENTO]
-    // Todo el estado de la partida es privado. Desde afuera solo se puede
-    // llamar a iniciar(): nadie puede, por ejemplo, poner la fase en "rojo"
-    // a mano y hacer trampa con el cronómetro.
+    // Todo el estado de la partida es privado. Desde afuera solo se puede llamar a iniciar(): 
+    // nadie puede, por ejemplo, poner la fase en "rojo" a mano y hacer trampa con el cronómetro.
     #api;
     #robot;
     #botones;
@@ -460,12 +425,9 @@ class Juego {
         this.#sonido = sonido;
         this.#botones = new PanelBotones(elementos.botones, (numero) => this.#alPulsar(numero), this.#sonido);
 
-        // Si el jugador cambia de pestaña o minimiza el navegador, el navegador
-        // frena los temporizadores y los tiempos medidos dejan de ser confiables.
-        // Se cancela la partida: las rondas ya guardadas siguen siendo válidas y
-        // la partida queda "en_curso". El análisis usa sus reacciones válidas en
-        // las métricas de tiempo, pero la excluye de las de resultado (fuga,
-        // duelo), porque no tiene resultado. Ver el criterio en tablas_juego.sql.
+        // Si el jugador cambia de pestaña o minimiza el navegador, el navegador frena los temporizadores y los tiempos medidos dejan de ser confiables.
+        // Se cancela la partida: las rondas ya guardadas siguen siendo válidas y la partida queda "en_curso". El análisis usa sus reacciones válidas en
+        // las métricas de tiempo, pero la excluye de las de resultado (fuga, duelo), porque no tiene resultado.
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && this.#activa) {
                 this.#cancelar('Saliste de la pestaña durante la partida.\nSe canceló para no falsear los tiempos.');
@@ -477,10 +439,8 @@ class Juego {
         if (this.#ocupado) { return; }   // evita el doble toque en "Iniciar"
         this.#ocupado = true;
 
-        // El submit de "Iniciar" es un gesto del usuario: es el único momento
-        // en que el navegador deja crear/activar el AudioContext. Si ya
-        // estaba sonando el ambiente de la pantalla de inicio, se corta acá:
-        // a partir de este punto el sonido de la partida toma la posta.
+        // El submit de "Iniciar" es un gesto del usuario: es el único momento en que el navegador deja crear/activar el AudioContext.
+        // Si ya estaba sonando el ambiente de la pantalla de inicio, se corta acá: a partir de este punto el sonido de la partida toma la posta.
         await this.#sonido.iniciar();
         this.#sonido.ambienteDetener();
 
@@ -498,7 +458,9 @@ class Juego {
 
         try {
             const tokenGuardado = almacen.leer(CLAVE_TOKEN_JUGADOR) || '';
-            const respuesta = await this.#api.iniciarPartida(tokenGuardado, alias, dispositivo);
+            const respuesta = await this.#api.iniciarPartida(tokenGuardado, alias, dispositivo, (intento) => {
+                this.#mensaje('Muchos operadores conectados · reintento ' + intento + ' de ' + INTENTOS_AL_INICIAR + '...', '');
+            });
 
             almacen.guardar(CLAVE_TOKEN_JUGADOR, respuesta.token_jugador);
             almacen.guardar(CLAVE_ALIAS, alias);
@@ -507,11 +469,17 @@ class Juego {
             this.#activa = true;
             this.#jugarRonda(respuesta.ronda);
         } catch (error) {
-            this.#mostrarFin('cancelada', 'NO SE PUDO INICIAR', error.message);
+            if (error.reintentable) {
+                // El servidor gratuito no dio abasto: no es un error del juego, y el mensaje lo dice.
+                this.#mostrarFin('cancelada', 'DEMASIADOS OPERADORES',
+                    'Hay mucha gente conteniendo a la IA en este momento y el servidor no da abasto. Esperá unos segundos y probá de nuevo.');
+            } else {
+                this.#mostrarFin('cancelada', 'NO SE PUDO INICIAR', error.message);
+            }
         }
     }
 
-    // ---------- Flujo de una ronda ----------
+    // Flujo de una ronda
 
     #jugarRonda(ronda) {
         this.#ronda = ronda;
@@ -525,12 +493,10 @@ class Juego {
         // Durante el retardo los botones están verdes: pulsar uno es falso inicio.
         this.#temporizador = setTimeout(() => this.#encenderRojo(), ronda.retardo_ms);
 
-        // La tensión dura EXACTAMENTE lo mismo que el retardo real de esta
-        // ronda: se acelera del todo justo cuando el botón se pone rojo.
+        // La tensión dura EXACTAMENTE lo mismo que el retardo real de esta ronda: se acelera del todo justo cuando el botón se pone rojo.
         this.#sonido.tensionIniciar(ronda.retardo_ms);
 
-        // Señuelo: null cuando esta ronda no tiene uno (la mayoría). El servidor
-        // ya garantiza que instante + duración cabe dentro del retardo.
+        // Señuelo: null cuando esta ronda no tiene uno (la mayoría). El servidor ya garantiza que instante + duración cabe dentro del retardo.
         if (ronda.senuelo_boton !== null) {
             this.#temporizadorSenueloMostrar = setTimeout(
                 () => this.#mostrarSenuelo(ronda.senuelo_boton),
@@ -540,8 +506,7 @@ class Juego {
     }
 
     #mostrarSenuelo(numero) {
-        // Por si llega tarde (la ronda ya se resolvió, o cambiaste de pestaña):
-        // acá ya no corresponde mostrar nada.
+        // Por si llega tarde (la ronda ya se resolvió, o cambiaste de pestaña): acá ya no corresponde mostrar nada.
         if (this.#fase !== 'esperando') { return; }
 
         this.#senueloBoton = numero;
@@ -558,9 +523,8 @@ class Juego {
         this.#senueloBoton = null;
     }
 
-    // Punto único para cortar todo lo pendiente de la ronda: los tres
-    // setTimeout Y el sonido de tensión, que no es un timer pero también
-    // queda "colgado" si no se corta acá (cancelación, error de red, etc.).
+    // Punto único para cortar todo lo pendiente de la ronda: 
+    // los tres setTimeout Y el sonido de tensión, que no es un timer pero también queda "colgado" si no se corta acá (cancelación, error de red, etc.).
     #limpiarTemporizadores() {
         clearTimeout(this.#temporizador);
         clearTimeout(this.#temporizadorSenueloMostrar);
@@ -578,10 +542,8 @@ class Juego {
         this.#robot.alertar();
         this.#mensaje('¡BRECHA! ¡CONTENELA!', 'alerta');
 
-        // performance.now() es un reloj de alta precisión que no salta si el
-        // usuario cambia la hora del sistema (Date.now() sí). La marca se toma
-        // después de cambiar el DOM. El navegador pinta el rojo un cuadro más
-        // tarde (~16 ms), un sesgo igual para todos que no afecta las comparaciones.
+        // performance.now() es un reloj de alta precisión que no salta si el usuario cambia la hora del sistema (Date.now() sí).
+        // La marca se tomadespués de cambiar el DOM. El navegador pinta el rojo un cuadro más tarde (~16 ms), un sesgo igual para todos que no afecta las comparaciones.
         this.#inicioRojo = performance.now();
 
         this.#temporizador = setTimeout(() => this.#resolver('timeout', null), this.#ronda.ventana_ms);
@@ -600,8 +562,7 @@ class Juego {
             if (numeroBoton === this.#ronda.boton_activado) {
                 this.#resolver('acierto', Math.round(ahora - this.#inicioRojo));
             } else {
-                // Pulsó un botón verde mientras había otro en rojo. La base solo
-                // tiene cuatro tipos de resultado, así que también es falso inicio.
+                // Pulsó un botón verde mientras había otro en rojo. La base solo tiene cuatro tipos de resultado, así que también es falso inicio.
                 this.#resolver('falso_inicio', null);
             }
         }
@@ -661,17 +622,22 @@ class Juego {
             );
         } catch (error) {
             if (this.#activa) {
-                this.#mostrarFin('cancelada', 'ERROR DE CONEXIÓN', error.message);
+                if (error.reintentable) {
+                    // Las rondas ya jugadas quedaron guardadas en el servidor: solo se perdió el resto de la partida.
+                    this.#mostrarFin('cancelada', 'SE CORTÓ LA SEÑAL',
+                        'El servidor se saturó por un momento y la partida no pudo seguir. Tus rondas ya jugadas quedaron registradas. Probá de nuevo en unos segundos.');
+                } else {
+                    this.#mostrarFin('cancelada', 'ERROR DE CONEXIÓN', error.message);
+                }
             }
         }
     }
 
-    // ---------- Estadísticas de la partida (solo para mostrar) ----------
+    // Estadísticas de la partida (solo para mostrar)
 
     #anotar(r) {
         if (r.tipo_resultado === 'acierto') {
-            // Solo entran los aciertos que el servidor aceptó como válidos: así
-            // el resumen usa las MISMAS reacciones que las estadísticas del servidor
+            // Solo entran los aciertos que el servidor aceptó como válidos: así el resumen usa las MISMAS reacciones que las estadísticas del servidor
             // (aciertos no sospechosos y con tiempo) y la mediana coincide con la del percentil.
             if (!r.sospechosa) {
                 this.#resumen.tiempos.push(r.tiempo_reaccion_ms);
@@ -691,8 +657,8 @@ class Juego {
 
         if (tiempos.length > 0) {
             const suma = tiempos.reduce(function (a, b) { return a + b; }, 0);
-            // Misma fórmula que compararPartida() en RepositorioJuego.php (el valor del medio,
-            // o el promedio de los dos del medio). Si se cambia una, hay que cambiar la otra.
+            // Misma fórmula que compararPartida() en RepositorioJuego.php (el valor del medio, o el promedio de los dos del medio). 
+            // Si se cambia una, hay que cambiar la otra.
             const medio = Math.floor(tiempos.length / 2);
             const mediana = (tiempos.length % 2 === 1)
                 ? tiempos[medio]
@@ -721,7 +687,7 @@ class Juego {
         return lineas.join('\n');
     }
 
-    // ---------- Cambios en la pantalla ----------
+    // Cambios en la pantalla
 
     #mostrarResultadoRonda(r, botonActivo) {
         if (r.tipo_resultado === 'acierto') {
@@ -750,8 +716,7 @@ class Juego {
         this.#ocupado = false;
         this.#fase = 'reposo';
         this.#el.app.setAttribute('data-resultado', resultado);
-        // textContent (nunca innerHTML): el texto se muestra tal cual, sin
-        // interpretar HTML, así que nada de lo que escriba un usuario puede inyectar código.
+        // textContent (nunca innerHTML): el texto se muestra tal cual, sin interpretar HTML, así que nada de lo que escriba un usuario puede inyectar código.
         this.#el.finTitulo.textContent = titulo;
         this.#el.finDetalle.textContent = detalle;
         this.#pintarPercentil(percentil, resultado);
@@ -759,14 +724,12 @@ class Juego {
     }
 
     // [POO · ENCAPSULAMIENTO]
-    // Método privado: solo el Juego decide cuándo se ve el porcentaje. Cuando
-    // la partida se cancela o falla la conexión no llega ningún dato (undefined),
-    // y el bloque se oculta en lugar de mostrar un valor viejo.
+    // Método privado: solo el Juego decide cuándo se ve el porcentaje.
+    // Cuando la partida se cancela o falla la conexión no llega ningún dato (undefined), y el bloque se oculta en lugar de mostrar un valor viejo.
     //
-    // El percentil mide la VELOCIDAD (tu mediana contra la de otros), no si
-    // ganaste la partida: se puede reaccionar rápido y aun así perder por
-    // timeouts, falsos inicios o el señuelo. Con "descontrolada" la frase lo
-    // aclara, para que el número no parezca contradecir el título de arriba.
+    // El percentil mide la VELOCIDAD (tu mediana contra la de otros), no si ganaste la partida: 
+    // se puede reaccionar rápido y aun así perder por timeouts, falsos inicios o el señuelo. 
+    // Con "descontrolada" la frase lo aclara, para que el número no parezca contradecir el título de arriba.
     #pintarPercentil(percentil, resultado) {
         if (!percentil || percentil.estado !== 'ok') {
             this.#el.finPercentil.hidden = true;
@@ -806,9 +769,9 @@ class Juego {
     }
 }
 
-/* ------------------------------------------------------------
+/* --------
    Arranque
-   ------------------------------------------------------------ */
+   -------- */
 const elementos = {
     app: document.getElementById('app'),
     robot: document.getElementById('robot'),
@@ -831,14 +794,7 @@ const juego = new Juego(elementos, new ClienteApi(), sonido);
 
 elementos.alias.value = almacen.leer(CLAVE_ALIAS) || '';
 
-// ---------- Ambiente de fondo en la pantalla de inicio ----------
-// El navegador no deja sonar nada sin un gesto previo, así que esto se
-// engancha al primer toque/clic O tecla en CUALQUIER parte de la página (no
-// hace falta que sea justo el botón "Iniciar"): ahí se activa el
-// AudioContext y arranca el zumbido de fondo. Si para ese momento la
-// partida ya arrancó (por ejemplo, el gesto fue directamente sobre
-// "Iniciar"), no lo prende: Juego.iniciar() ya se encarga de cortarlo
-// apenas empieza la partida.
+// Ambiente de fondo en la pantalla de inicio
 function activarAudioPrimeraVez() {
     console.log('[sonido] primer gesto detectado');   // sacar cuando esté confirmado
     document.removeEventListener('pointerdown', activarAudioPrimeraVez);
@@ -854,8 +810,7 @@ function activarAudioPrimeraVez() {
 document.addEventListener('pointerdown', activarAudioPrimeraVez, { once: true });
 document.addEventListener('keydown', activarAudioPrimeraVez, { once: true });
 
-// Precalentamiento: el navegador decodifica las imágenes de los botones ahora,
-// no en el momento en que uno se pone rojo (ese instante se está midiendo).
+// Precalentamiento: el navegador decodifica las imágenes de los botones ahora, no en el momento en que uno se pone rojo (ese instante se está midiendo).
 document.querySelectorAll('.boton-imagen').forEach(function (imagen) {
     if (imagen.decode) {
         imagen.decode().catch(function () { /* si falla, se decodifica al mostrarla */ });
@@ -875,7 +830,7 @@ document.getElementById('btn-reintentar').addEventListener('click', function () 
     juego.iniciar(aliasIngresado());
 });
 
-// ---------- Modal de reglas ("Aprender") ----------
+// Modal de reglas ("Aprender")
 const modalReglas = document.getElementById('modal-reglas');
 
 document.getElementById('btn-aprender').addEventListener('click', function () {
@@ -886,8 +841,7 @@ document.getElementById('btn-cerrar-reglas').addEventListener('click', function 
     modalReglas.close();
 });
 
-// Cerrar tocando el fondo oscuro (el ::backdrop no dispara click del dialog,
-// así que se mide si el toque cayó fuera del rectángulo del modal).
+// Cerrar tocando el fondo oscuro (el ::backdrop no dispara click del dialog, así que se mide si el toque cayó fuera del rectángulo del modal).
 modalReglas.addEventListener('click', function (evento) {
     const caja = modalReglas.getBoundingClientRect();
     const dentro = evento.clientX >= caja.left && evento.clientX <= caja.right &&

@@ -14,6 +14,7 @@ function conectar()
 
     $conexion = new mysqli(BD_SERVIDOR, BD_USUARIO, BD_CLAVE, BD_NOMBRE);
     $conexion->set_charset('utf8mb4');
+    $conexion->query('SET SESSION SQL_BIG_SELECTS = 1');
 
     return $conexion;
 }
