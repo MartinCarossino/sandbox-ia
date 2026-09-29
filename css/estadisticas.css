@@ -267,6 +267,30 @@ html {
     100% { background: transparent; box-shadow: inset 3px 0 0 transparent; }
 }
 
+/* El podio */
+.podio { margin: 0; padding: 0; list-style: none; }
+.puesto {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas: "numero alias valor" "numero detalle valor";
+    align-items: center;
+    gap: 2px 12px;
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--linea);
+}
+.puesto-numero  { grid-area: numero; font-size: 24px; font-weight: 700; line-height: 1; color: var(--apagado); font-variant-numeric: tabular-nums; }
+.puesto-alias   { grid-area: alias; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.puesto-detalle { grid-area: detalle; font-size: 12px; color: var(--apagado); letter-spacing: 0.06em; white-space: nowrap; }
+.puesto-valor   { grid-area: valor; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* El primer puesto brilla en verde, como los ojos del robot cuando la IA está contenida. */
+.puesto-1 .puesto-numero,
+.puesto-1 .puesto-valor { color: var(--verde); text-shadow: 0 0 12px rgba(124, 255, 158, 0.45); }
+.puesto-2 .puesto-numero { color: var(--texto); }
+
+.puesto.nueva { animation: aparece 2.6s ease-out; }
+.nota { margin: 10px 0 0; font-size: 11px; line-height: 1.5; color: var(--apagado); letter-spacing: 0.04em; }
+
 .tablero {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -367,6 +391,6 @@ html {
 
 /* Quien pide menos movimiento no ve parpadeos ni destellos. */
 @media (prefers-reduced-motion: reduce) {
-    .senal-punto, .robot .ojo, .estado-en_curso .partida-estado, .partida.nueva { animation: none !important; }
+    .senal-punto, .robot .ojo, .estado-en_curso .partida-estado, .partida.nueva, .puesto.nueva { animation: none !important; }
     .barra-cubierta, .celda-verde, .celda-rojo, .robot .ojo { transition: none; }
 }

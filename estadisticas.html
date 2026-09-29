@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="preload" as="image" href="img/robot.webp" type="image/webp" fetchpriority="high">
+    <link rel="preload" as="image" href="https://cdn.jsdelivr.net/gh/MartinCarossino/sandbox-ia@main/img/robot.webp" type="image/webp" fetchpriority="high">
     <link rel="stylesheet" href="css/estadisticas.css">
 </head>
 <body>
@@ -28,7 +28,7 @@
         <div class="marco-robot">
             <svg id="robot" class="robot" viewBox="0 0 200 299" role="img"
                  aria-label="Robot esqueleto de plastilina con ojos rojos">
-                <image href="img/robot.webp" x="0" y="0" width="200" height="299"
+                <image href="https://cdn.jsdelivr.net/gh/MartinCarossino/sandbox-ia@main/img/robot.webp" x="0" y="0" width="200" height="299"
                        onload="this.parentNode.setAttribute('data-listo', '')"/>
                 <g class="pupilas">
                     <circle class="ojo" cx="54.3" cy="135.3" r="11"/>
@@ -67,9 +67,17 @@
         <ul class="feed" aria-label="Últimas partidas"></ul>
     </section>
 
-    <!-- 02 · DISTRIBUCIÓN -->
+    <!-- 02 · EL PODIO: la mejor partida de cada operador -->
+    <section class="bloque" id="s-podio">
+        <p class="pregunta">02 · EL PODIO</p>
+        <h2 class="titular"></h2>
+        <ol class="podio" aria-label="Los mejores operadores"></ol>
+        <p class="nota"></p>
+    </section>
+
+    <!-- 03 · DISTRIBUCIÓN -->
     <section class="bloque" id="s-distribucion">
-        <p class="pregunta">02 · ¿CUÁNTO TARDAMOS?</p>
+        <p class="pregunta">03 · ¿CUÁNTO TARDAMOS?</p>
         <h2 class="titular"></h2>
         <div class="grafico"></div>
         <ul class="leyenda" aria-hidden="true">
@@ -79,16 +87,16 @@
         </ul>
     </section>
 
-    <!-- 03 · DISPOSITIVOS -->
+    <!-- 04 · DISPOSITIVOS -->
     <section class="bloque" id="s-dispositivos">
-        <p class="pregunta">03 · ¿CELULAR O COMPU?</p>
+        <p class="pregunta">04 · ¿CELULAR O COMPU?</p>
         <h2 class="titular"></h2>
         <div class="grafico"></div>
     </section>
 
-    <!-- 04 · EL TABLERO: el mapa de calor está hecho con los mismos botones del juego -->
+    <!-- 05 · EL TABLERO: el mapa de calor está hecho con los mismos botones del juego -->
     <section class="bloque" id="s-tablero">
-        <p class="pregunta">04 · EL TABLERO</p>
+        <p class="pregunta">05 · EL TABLERO</p>
         <h2 class="titular"></h2>
         <div class="tablero" role="group" aria-label="Los seis botones del juego, en dos filas de tres"></div>
         <div class="regla" aria-hidden="true">
@@ -97,9 +105,9 @@
         </div>
     </section>
 
-    <!-- 05 · A LO LARGO DE LA PARTIDA -->
+    <!-- 06 · A LO LARGO DE LA PARTIDA -->
     <section class="bloque" id="s-rondas">
-        <p class="pregunta">05 · A LO LARGO DE LA PARTIDA</p>
+        <p class="pregunta">06 · A LO LARGO DE LA PARTIDA</p>
         <h2 class="titular"></h2>
         <div class="grafico"></div>
         <ul class="leyenda" aria-hidden="true">
@@ -108,9 +116,9 @@
         </ul>
     </section>
 
-    <!-- 06 · DUELO DE ROBOTS -->
+    <!-- 07 · DUELO DE ROBOTS -->
     <section class="bloque" id="s-duelo">
-        <p class="pregunta">06 · EL ROBOT QUE APRENDE</p>
+        <p class="pregunta">07 · EL ROBOT QUE APRENDE</p>
         <h2 class="titular"></h2>
         <div class="duelo">
             <div class="duelo-fila" data-robot="aleatorio">

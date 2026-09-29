@@ -1,15 +1,11 @@
 'use strict';
 
-/* ============================================================
-   estadisticas.js · panel de datos en vivo
-   ============================================================
-   Este archivo NO calcula estadística. Cada veredicto ("hay diferencia",
-   "todavía no alcanza") llega ya decidido desde las consultas SQL de
-   api/estadisticas.php. Acá solo se hace tres cosas:
+/* ===============================================
+   Acá solo se hace tres cosas:
      1. preguntarle a la API cada pocos segundos,
      2. repartir la respuesta entre las secciones,
      3. dibujar lo que cada sección recibe.
-   ============================================================ */
+   =============================================== */
 
 const URL_API = 'api/estadisticas.php';
 const INTERVALO_MS = 10000;          // cada cuánto se vuelve a preguntar
@@ -346,9 +342,9 @@ class GraficoEvolucion extends Grafico {
     }
 }
 
-/* ============================================================
+/* =============================================================
    Secciones: una clase base y una hija por sección de la página
-   ============================================================ */
+   ============================================================= */
 
 // [POO · ABSTRACCIÓN]
 // Seccion define el CONTRATO de cualquier sección: recibe la respuesta de la API (actualizar), la pinta (pintar) y opcionalmente refresca sus relojes (tic).
@@ -491,7 +487,56 @@ class SeccionAhora extends Seccion {
     }
 }
 
-/* 02 · Distribución de los tiempos */
+/* 02 · El podio: la mejor partida de cada operador */
+
+class SeccionPodio extends Seccion {
+    #lista;
+    #nota;
+    #vistos = null;     // "alias|mediana" de cada puesto en la respuesta anterior (null hasta la primera)
+
+    constructor(idRaiz) {
+        super(idRaiz);
+        this.#lista = this.buscar('.podio');
+        this.#nota = this.buscar('.nota');
+    }
+
+    // [POO · POLIMORFISMO]
+    pintar(datos) {
+        const puestos = datos.podio || [];
+        const minimo = datos.podio_minimo;
+        this.#nota.textContent = 'La mejor partida de cada operador, según su mediana de reacción. '
+            + 'Cuentan las partidas terminadas con al menos ' + minimo + ' reacciones válidas.';
+
+        // Se destaca quien entró al podio o mejoró su marca desde la respuesta anterior (no en la primera carga).
+        const primeraVez = this.#vistos === null;
+        const anteriores = this.#vistos || new Set();
+        this.#vistos = new Set();
+
+        this.#lista.replaceChildren();
+        puestos.forEach((p) => {
+            const clave = p.alias + '|' + p.mediana_ms;
+            this.#vistos.add(clave);
+            this.#lista.appendChild(this.#crearFila(p, !primeraVez && !anteriores.has(clave)));
+        });
+
+        if (puestos.length === 0) {
+            return { frase: frase('Todavía nadie subió al podio: hace falta terminar una partida con al menos ', dato(minimo + ' reacciones válidas'), '.') };
+        }
+        return { frase: frase(dato(puestos[0].alias), ' lidera con una mediana de ', dato(enMs(puestos[0].mediana_ms)), ' en su mejor partida.') };
+    }
+
+    #crearFila(p, resaltar) {
+        const fila = elemento('li', 'puesto puesto-' + p.puesto + (resaltar ? ' nueva' : ''));
+        fila.appendChild(elemento('span', 'puesto-numero', p.puesto + '°'));
+        fila.appendChild(elemento('span', 'puesto-alias', p.alias));
+        fila.appendChild(elemento('span', 'puesto-detalle',
+            (ETIQUETA_CORTA_DISPOSITIVO[p.dispositivo] || p.dispositivo) + ' · ' + plural(p.reacciones, 'reacción', 'reacciones')));
+        fila.appendChild(elemento('span', 'puesto-valor', enMs(p.mediana_ms)));
+        return fila;
+    }
+}
+
+/* 03 · Distribución de los tiempos */
 
 class SeccionDistribucion extends Seccion {
     #grafico;
@@ -517,7 +562,7 @@ class SeccionDistribucion extends Seccion {
     }
 }
 
-/* 03 · PC contra celular */
+/* 04 · PC contra celular */
 
 class SeccionDispositivos extends Seccion {
     #grafico;
@@ -555,7 +600,7 @@ class SeccionDispositivos extends Seccion {
     }
 }
 
-/* 04 · El tablero: mapa de calor con los botones del juego */
+/* 05 · El tablero: mapa de calor con los botones del juego */
 
 function filtroDeTono(t) {
     const angulo = t <= 0.5 ? -82 * (t / 0.5) : -82 - 36 * ((t - 0.5) / 0.5);
@@ -578,11 +623,11 @@ class SeccionTablero extends Seccion {
             const celda = elemento('div', 'celda');
             const boton = elemento('span', 'celda-boton');
             const verde = elemento('img', 'celda-verde');
-            verde.src = 'img/boton_verde.webp';
+            verde.src = 'https://cdn.jsdelivr.net/gh/MartinCarossino/sandbox-ia@main/img/boton_verde.webp';
             verde.alt = '';
             verde.draggable = false;
             const rojo = elemento('img', 'celda-rojo');
-            rojo.src = 'img/boton_rojo.webp';
+            rojo.src = 'https://cdn.jsdelivr.net/gh/MartinCarossino/sandbox-ia@main/img/boton_rojo.webp';
             rojo.alt = '';
             rojo.draggable = false;
             boton.appendChild(verde);
@@ -639,7 +684,7 @@ class SeccionTablero extends Seccion {
     }
 }
 
-/* 05 · A lo largo de la partida */
+/* 06 · A lo largo de la partida */
 
 class SeccionRondas extends Seccion {
     #grafico;
@@ -668,13 +713,12 @@ class SeccionRondas extends Seccion {
         if (ultima === 1 || llegaron >= empezaron) {
             return { frase: frase('Todas las partidas llegan hasta la ronda ', dato(ultima), '.') };
         }
-        // Las partidas se cortan antes (la IA escapa o la persona se va), así que las rondas
-        // altas las juegan cada vez menos partidas: se muestra ese número junto a la curva.
+        // Las partidas se cortan antes (la IA escapa o la persona se va), así que las rondas altas las juegan cada vez menos partidas: se muestra ese número junto a la curva.
         return { frase: frase('De ', dato(plural(empezaron, 'partida', 'partidas')), ' que empiezan, ', dato(llegaron), ' llegan a la ronda ', dato(ultima), '.') };
     }
 }
 
-/* 06 · El robot que aprende */
+/* 07 · El robot que aprende */
 
 class SeccionDuelo extends Seccion {
 
@@ -797,6 +841,7 @@ class Panel {
 new Panel([
     new Cabecera('cabecera'),
     new SeccionAhora('s-ahora'),
+    new SeccionPodio('s-podio'),
     new SeccionDistribucion('s-distribucion'),
     new SeccionDispositivos('s-dispositivos'),
     new SeccionTablero('s-tablero'),

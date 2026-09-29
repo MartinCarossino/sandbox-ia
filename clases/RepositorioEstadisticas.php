@@ -18,6 +18,10 @@ class RepositorioEstadisticas
     // Columnas que MySQL entrega como 0/1 y que en JSON tienen que ser true/false.
     private $columnasVerdaderoFalso = array('hay_diferencia', 'destaca', 'suficiente');
 
+    // Podio: una partida entra solo si tiene al menos esta cantidad de reacciones válidas (de 12 rondas posibles).
+    // Así no gana una partida corta con tres aciertos afortunados: la mediana tiene que sostenerse casi toda la partida.
+    const MINIMO_REACCIONES_PODIO = 8;
+
     public function __construct(mysqli $conexion)
     {
         $this->conexion = $conexion;
@@ -368,6 +372,59 @@ class RepositorioEstadisticas
                 FROM partidas p
                 INNER JOIN jugadores j ON j.id_jugador = p.id_jugador
                 ORDER BY p.id_partida DESC
+                LIMIT " . (int) $cantidad;
+
+        return $this->consultar($sql);
+    }
+
+    /**
+     * Los mejores operadores: la mejor partida de cada uno, ordenadas por mediana (más baja = mejor).
+     * @param int $cantidad cuántos puestos devolver (se fuerza a entero)
+     * @return array una fila por puesto, del primero al último
+     */
+    public function podio($cantidad)
+    {
+        // Se rankea la MEDIANA de una partida, no la mejor reacción suelta: un tiempo aislado puede ser suerte, una mediana baja en toda una partida no.
+        $sql = "WITH reacciones AS (
+                    SELECT r.id_partida,
+                           p.id_jugador,
+                           p.dispositivo,
+                           p.fecha_inicio,
+                           r.tiempo_reaccion_ms AS ms,
+                           ROW_NUMBER() OVER (PARTITION BY r.id_partida ORDER BY r.tiempo_reaccion_ms) AS posicion,
+                           COUNT(*)     OVER (PARTITION BY r.id_partida)                               AS total
+                    FROM rondas r
+                    INNER JOIN partidas p  ON p.id_partida = r.id_partida
+                    INNER JOIN jugadores j ON j.id_jugador = p.id_jugador
+                    WHERE p.resultado <> 'en_curso'
+                      AND j.token IS NOT NULL
+                      AND r.tipo_resultado = 'acierto'
+                      AND r.sospechosa = 0
+                      AND r.tiempo_reaccion_ms IS NOT NULL
+                ),
+                partidas_validas AS (
+                    SELECT id_partida, id_jugador, dispositivo, fecha_inicio,
+                           total             AS reacciones,
+                           ROUND(AVG(ms), 1) AS mediana_ms
+                    FROM reacciones
+                    WHERE total >= " . self::MINIMO_REACCIONES_PODIO . "
+                      AND posicion IN (FLOOR((total + 1) / 2), CEIL((total + 1) / 2))
+                    GROUP BY id_partida, id_jugador, dispositivo, fecha_inicio, total
+                ),
+                mejor_de_cada_uno AS (
+                    SELECT id_partida, id_jugador, dispositivo, fecha_inicio, reacciones, mediana_ms,
+                           ROW_NUMBER() OVER (PARTITION BY id_jugador ORDER BY mediana_ms, fecha_inicio, id_partida) AS orden
+                    FROM partidas_validas
+                )
+                SELECT ROW_NUMBER() OVER (ORDER BY m.mediana_ms, m.fecha_inicio, m.id_partida) AS puesto,
+                       j.alias,
+                       m.dispositivo,
+                       m.mediana_ms,
+                       m.reacciones
+                FROM mejor_de_cada_uno m
+                INNER JOIN jugadores j ON j.id_jugador = m.id_jugador
+                WHERE m.orden = 1
+                ORDER BY puesto
                 LIMIT " . (int) $cantidad;
 
         return $this->consultar($sql);

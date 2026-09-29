@@ -7,6 +7,9 @@ require_once dirname(__FILE__) . '/../clases/RepositorioEstadisticas.php';
 // Cuántas partidas recientes mostrar en la lista "en vivo".
 define('CANTIDAD_ULTIMAS_PARTIDAS', 10);
 
+// Cuántos puestos mostrar en el podio.
+define('CANTIDAD_PODIO', 3);
+
 // true: se muestra el alias que escribió cada jugador. false: todos figuran como "Anónimo".
 define('MOSTRAR_ALIAS', true);
 
@@ -38,9 +41,13 @@ try {
     $repositorio = new RepositorioEstadisticas(conectar());
 
     $ultimas = $repositorio->ultimasPartidas(CANTIDAD_ULTIMAS_PARTIDAS);
+    $podio   = $repositorio->podio(CANTIDAD_PODIO);
     if (!MOSTRAR_ALIAS) {
         foreach ($ultimas as $i => $partida) {
             $ultimas[$i]['alias'] = 'Anónimo';
+        }
+        foreach ($podio as $i => $puesto) {
+            $podio[$i]['alias'] = 'Anónimo';
         }
     }
 
@@ -54,7 +61,9 @@ try {
         'rondas'       => $repositorio->porRonda(),
         'robots'       => $repositorio->robots(),
         'duelo'        => $repositorio->duelo(),
-        'ultimas'      => $ultimas
+        'ultimas'      => $ultimas,
+        'podio'        => $podio,
+        'podio_minimo' => RepositorioEstadisticas::MINIMO_REACCIONES_PODIO   // el panel lo muestra en la nota del podio
     ), JSON_UNESCAPED_UNICODE);
 
     if ($json === false) {
